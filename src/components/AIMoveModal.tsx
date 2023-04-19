@@ -1,0 +1,169 @@
+import { faCopy } from "@fortawesome/free-solid-svg-icons";
+import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
+import { useState } from "react";
+import { Button, Form, InputGroup, Modal, Spinner } from "react-bootstrap";
+import { Chess, Color } from 'chess.js'
+import CopyToClipboard from "react-copy-to-clipboard";
+import { toast } from "react-toastify";
+import ChessGPT from "../chess_master_2000/ChessGPT";
+
+type AIMoveModalProps = {
+  showModal: boolean;
+  ai: ChessGPT;
+  playerColor: Color;
+  game: Chess;
+  onMove: (move: string, reason: string) => void;
+  setApiKey: (key: string) => void;
+  apiKey: string;
+}
+
+export default function AIMoveModal({ showModal, ai, game, playerColor, onMove, apiKey, setApiKey }: AIMoveModalProps) {
+  const [selectedOption, setSelectedOption] = useState<'apiKey' | 'copyPrompt'>('apiKey');
+  const [manualMove, setManualMove] = useState('');
+  const [showSpinner, setShowSpinner] = useState(false);
+  const [model, setModel] = useState('gpt-4');
+
+  const aiColor = playerColor === 'w' ? 'b' : 'w';
+  const validMoves = game.moves({ verbose: true });
+  const validMovesSan = validMoves.map(move => move.san);
+  const prompt = ai.getUserPrompt(game.fen(), game.pgn(), validMovesSan, aiColor);
+  const estimatedTokens = ai.getEstimatedTokens(game.fen(), game.pgn(), validMovesSan, aiColor);
+  const kTokens = (estimatedTokens || 0) / 1000;
+  const cost = model === 'gpt-4' ? 0.03 * kTokens : 0.002 * kTokens;
+
+  async function sendRequest() {
+    setShowSpinner(true);
+    try {
+      const aiMove = await ai.getNextMove(game.fen(), game.pgn(), validMovesSan, playerColor === 'w' ? 'b' : 'w', model, apiKey);
+      const kTokens = (aiMove.tokensUsed || 0) / 1000;
+      const cost = model === 'gpt-4' ? 0.03 * kTokens : 0.002 * kTokens;
+      toast.success(`ChatGPT makes the move: ${aiMove.san}\nTokens Used: ${aiMove.tokensUsed} ($${cost.toFixed(2)})`);
+      onMove(aiMove.san, aiMove.reason);
+    } catch (e: any) {
+      toast.error(`Something went wrong, please try again later: ${e.message}`);
+    }
+    setShowSpinner(false);
+  }
+
+  return (
+    <Modal show={showModal}>
+      <Modal.Header>
+        <Modal.Title>It's the AI's turn</Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
+        <Form>
+          <Form.Group>
+            <Form.Check
+              disabled={showSpinner}
+              type="radio"
+              label="Use OpenAI API Key"
+              value="apiKey"
+              checked={selectedOption === 'apiKey'}
+              onChange={() => setSelectedOption('apiKey')}
+              name="formRadio"
+              id="formRadioApiKey"
+            />
+            <Form.Check
+              disabled={showSpinner}
+              type="radio"
+              label="Copy prompt"
+              value="copyPrompt"
+              checked={selectedOption === 'copyPrompt'}
+              onChange={() => setSelectedOption('copyPrompt')}
+              name="formRadio"
+              id="formRadioCopyPrompt"
+            />
+          </Form.Group>
+          <hr />
+          {selectedOption === 'apiKey' && (
+            <>
+              <Form.Group>
+                <Form.Label>API Key (Don't worry this is only used locally)</Form.Label>
+                <Form.Control
+                  required
+                  disabled={showSpinner}
+                  type="password"
+                  placeholder="Enter API Key"
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)} />
+              </Form.Group>
+              <Form.Group>
+                <Form.Check
+                  disabled={showSpinner}
+                  type="radio"
+                  label="Use gpt-3.5-turbo (Cheap, but not good)"
+                  value="gpt-3.5-turbo"
+                  checked={model === "gpt-3.5-turbo"}
+                  onChange={() => setModel("gpt-3.5-turbo")}
+                  name="formRadioModel"
+                  id="formRadioModelGpt35Turbo"
+                />
+                <Form.Check
+                  disabled={showSpinner}
+                  type="radio"
+                  label="Use gpt-4 (Expensive, but better)"
+                  value="gpt-4"
+                  checked={model === 'gpt-4'}
+                  onChange={() => setModel('gpt-4')}
+                  name="formRadioModel"
+                  id="formRadioModelGpt4"
+                />
+              </Form.Group>
+              <Form.Group>
+                <Form.Label>This is the prompt that will sent to the AI:</Form.Label>
+                <InputGroup>
+                  <Form.Control as="textarea" rows={10} placeholder="Enter prompt" readOnly value={prompt} />
+                  <CopyToClipboard text={prompt} onCopy={() => toast.success(`Copied prompt to clipboard`)}>
+                    <Button variant="outline"><FontAwesomeIcon icon={faCopy} /></Button>
+                  </CopyToClipboard>
+                </InputGroup>
+                <div>We will use approx {estimatedTokens} tokens (${cost.toFixed(2)})</div>
+              </Form.Group>
+            </>
+          )}
+
+          {selectedOption === 'copyPrompt' && (
+            <>
+              <Form.Group>
+                <Form.Label>Copy this prompt into the ChatGPT window</Form.Label>
+                <InputGroup>
+                  <Form.Control as="textarea" rows={10} placeholder="Enter prompt" readOnly value={prompt} />
+                  <CopyToClipboard text={prompt} onCopy={() => toast.success(`Copied prompt to clipboard`)}>
+                    <Button variant="outline"><FontAwesomeIcon icon={faCopy} /></Button>
+                  </CopyToClipboard>
+                </InputGroup>
+              </Form.Group>
+              <Form.Group>
+                <Form.Label>Once you have the result from the AI (e.g. Nf3), paste it here:</Form.Label>
+                <Form.Control
+                  type="text"
+                  placeholder="Enter chess move in SAN format"
+                  value={manualMove}
+                  onChange={(e) => setManualMove(e.target.value)} />
+              </Form.Group>
+            </>
+          )}
+        </Form>
+      </Modal.Body>
+      <Modal.Footer>
+        {selectedOption === 'apiKey' && (
+          <>
+            {showSpinner &&
+              <>
+                Thinking...<Spinner animation="border" role="status" variant="primary">
+                  <span className="sr-only"></span>
+                </Spinner>
+              </>
+            }
+            <Button variant="primary" onClick={sendRequest} disabled={!apiKey}>
+              Send Request
+            </Button>
+          </>)}
+        {selectedOption === 'copyPrompt' && (
+          <Button variant="primary" disabled={manualMove === ''} onClick={() => { onMove(manualMove, '') }}>
+            Make Move
+          </Button>)}
+      </Modal.Footer>
+    </Modal >
+  );
+}
