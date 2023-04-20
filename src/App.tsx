@@ -44,13 +44,13 @@ function App() {
     setPlayerColor(playerColor);
     setIsGameStarted(true);
     setShowStartGameModal(false);
-    if (playerColor === 'b') {
+    if (playerColor !== game.turn()) {
       setShowAIMoveModal(true);
     }
   }
 
-  function onPlayerMove(from: string, to: string) {
-    game.move({ from, to });
+  function onPlayerMove(from: string, to: string, promotion?: string) {
+    game.move({ from, to, promotion });
     updateGameState();
     if (game.isGameOver()) {
       handleGameOver();
@@ -96,7 +96,7 @@ function App() {
   return (
     <div className='container'>
       <div className='chessboard'>
-        <ChessBoard game={game} fen={fen} isGameStarted={isGameStarted} playerColor={playerColor} onPlayerMove={(from, to) => onPlayerMove(from, to)} />
+        <ChessBoard game={game} fen={fen} isGameStarted={isGameStarted} playerColor={playerColor} onPlayerMove={(from, to, promotion) => onPlayerMove(from, to, promotion)} />
       </div>
       <div className="right_panel">
         <div style={{ display: 'flex', justifyContent: 'space-around', marginBottom: '1rem' }}>

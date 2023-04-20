@@ -2,15 +2,23 @@ import useResizeObserver from "@react-hook/resize-observer";
 import { Chess, Color } from "chess.js";
 import React from "react";
 import { useEffect, useRef } from "react";
+import { Button, Modal } from "react-bootstrap";
 
 const whiteSquareGrey = '#a9a9a9';
 const blackSquareGrey = '#696969';
+
+const PROMOTION_OPTIONS = [
+  { black: '♕', white: '♛', piece: 'q' },
+  { black: '♗', white: '♝', piece: 'b' },
+  { black: '♘', white: '♞', piece: 'n' },
+  { black: '♖', white: '♜', piece: 'r' },
+]
 
 type ChessBoardProps = {
   game: Chess
   isGameStarted: boolean
   playerColor: Color
-  onPlayerMove: (from: string, to: string) => void
+  onPlayerMove: (from: string, to: string, promotion?: string) => void
   fen: string
 }
 
@@ -31,6 +39,9 @@ const useSize = (target: React.RefObject<HTMLElement>) => {
 export default function ChessBoard({ game, fen, isGameStarted, playerColor, onPlayerMove }: ChessBoardProps) {
   // chessboard-element ref
   const chessBoardRef = useRef<HTMLElement>(null);
+  // promotion handling
+  const [showPromotionDialog, setShowPromotionDialog] = React.useState(false);
+  const [promotionMove, setPromotionMove] = React.useState({ from: '', to: '' });
 
   // update the chessboard when the game fen changes
   useEffect(() => {
@@ -115,7 +126,7 @@ export default function ChessBoard({ game, fen, isGameStarted, playerColor, onPl
       }
     }
 
-    async function onDrop(event: any) {
+    function onDrop(event: any) {
       const { source, target, setAction } = event.detail;
       // clear any highlighting
       setEdgeHighlightStyle("");
@@ -125,10 +136,16 @@ export default function ChessBoard({ game, fen, isGameStarted, playerColor, onPl
         setAction('snapback');
         return;
       }
-
       // see if the move is legal
       try {
-        await onPlayerMove(source, target);
+        // is this a pawn promotion?
+        if (game.get(source)?.type === 'p' && (target[1] === '1' || target[1] === '8')) {
+          // need to show the promotion dialog
+          setPromotionMove({ from: source, to: target });
+          setShowPromotionDialog(true);
+        } else {
+          onPlayerMove(source, target);
+        }
       } catch (e) {
         setAction('snapback');
       }
@@ -151,6 +168,16 @@ export default function ChessBoard({ game, fen, isGameStarted, playerColor, onPl
     };
   }, [chessBoardRef, game, isGameStarted, onPlayerMove, playerColor]);
 
+  function promote(piece: string) {
+    try {
+      console.log("Promoting pawn to: ", piece);
+      onPlayerMove(promotionMove.from, promotionMove.to, piece);
+    } catch (error) {
+      console.error(error);
+    }
+    setShowPromotionDialog(false);
+  }
+
   return (
     <div style={{ marginBottom: -(size?.width || 0) / 8 }}>
       <chess-board
@@ -159,6 +186,28 @@ export default function ChessBoard({ game, fen, isGameStarted, playerColor, onPl
         position='start'
         draggable-pieces={isGameStarted}
       ></chess-board>
-    </div>
+      <Modal show={showPromotionDialog}>
+        <Modal.Header>
+          <Modal.Title>Promote your pawn to?</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          {playerColor === 'w' && (
+            <>
+              {PROMOTION_OPTIONS.map(p => (
+                <Button variant="outline" onClick={() => promote(p.piece)}><div style={{ fontSize: '100px' }}>{p.white}</div></Button>
+              ))}
+            </>
+          )}
+          {playerColor === 'b' && (
+            <>
+              {PROMOTION_OPTIONS.map(p => (
+                <Button variant="outline" onClick={() => promote(p.piece)}><div style={{ fontSize: '100px' }}>{p.black}</div></Button>
+              ))}
+            </>
+          )
+          }
+        </Modal.Body >
+      </Modal >
+    </div >
   );
 }
