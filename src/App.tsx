@@ -1,11 +1,12 @@
 import React, { useState } from "react";
-import { Button, Modal, Spinner } from "react-bootstrap";
+import { Button } from "react-bootstrap";
 import "chessboard-element";
 import { Chess, Color } from 'chess.js'
+import { ToastContainer, toast } from 'react-toastify';
+
 import ChessGPT from "./chess_master_2000/ChessGPT";
 import ChessBoard from "./components/ChessBoard";
 import StartGameModal from "./components/StartGameModal";
-import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import TextDisplay from "./components/TextDisplay";
 import AIMoveModal from "./components/AIMoveModal";
