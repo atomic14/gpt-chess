@@ -6,10 +6,24 @@ type MessageHistory = {
   assistant: string;
 };
 
-const HISTORY_LIMIT = 5;
+type MoveArgs = {
+  fen: string;
+  pgn: string;
+  ascii: string;
+  boardDescription: string;
+  validMoves: string[];
+  invalidAttemptedMoves: string[];
+  aiColor: Color;
+};
+
+type AiMoveArgs = MoveArgs & {
+  model: string;
+  apiKey: string;
+};
+
+const HISTORY_LIMIT = 0;
 const SYSTEM_PROMPT = `You are an expert at playing chess.
-Given the FEN of the board and the last 10 moves, suggest the best move to make next from the current position.
-Use SAN for the move syntax. For example, e4, Nf3, Bb5, etc.
+Given the FEN of the board, suggest the best move in SAN format to make next from the current position.
 
 Output your results using the following single blob of JSON. Do not include any other information.
 
@@ -26,13 +40,24 @@ export default class ChessGPT {
     this.messageHistory = [];
   }
 
-  getEstimatedTokens(
-    fen: string,
-    pgn: string,
-    validMoves: string[],
-    aiColor: Color
-  ): number {
-    const userPrompt = this.getUserPrompt(fen, pgn, validMoves, aiColor);
+  getEstimatedTokens({
+    fen,
+    pgn,
+    ascii,
+    boardDescription,
+    validMoves,
+    invalidAttemptedMoves,
+    aiColor,
+  }: MoveArgs): number {
+    const userPrompt = this.getUserPrompt({
+      fen,
+      pgn,
+      ascii,
+      boardDescription,
+      validMoves,
+      invalidAttemptedMoves,
+      aiColor,
+    });
     const messages = this.getMessages(userPrompt);
     // build up a string of all the text - this is going to be very rough and ready
     const text = messages.map((message) => message.content).join("\n");
@@ -63,41 +88,55 @@ export default class ChessGPT {
     return messages;
   }
 
-  getUserPrompt(
-    fen: string,
-    pgn: string,
-    validMoves: string[],
-    aiColor: Color
-  ): string {
+  getUserPrompt({
+    fen,
+    pgn,
+    ascii,
+    boardDescription,
+    validMoves,
+    invalidAttemptedMoves,
+    aiColor,
+  }: MoveArgs): string {
     // feed in the user message
-    const userPrompt = `You are playing ${
+    let userPrompt = `You are playing ${
       aiColor === "w" ? "white" : "black"
     } and it is your turn.
 
-This is the current state of the game:
+This is the current state of the game use this to work out where the pieces are on the board:
 
 FEN: ${fen}
-PGN: ${pgn}
-
-Output the best move that to follow this position using the following single blob of JSON. Do not include any other information.
-
-Only use the moves in this list: ${validMoves.join(", ")}
+Move History: ${pgn}
+`;
+    if (invalidAttemptedMoves.length > 0) {
+      userPrompt += `Use one of the following valid moves: ${validMoves.join(
+        ", "
+      )}\n`;
+      userPrompt += `You have already tried the following invalid moves: ${invalidAttemptedMoves.join(
+        ", "
+      )}\n`;
+    }
+    userPrompt += `
+Output the best move in SAN format to follow this position. Use the following single blob of JSON. Do not include any other information.
 
 {
   "san": "The move in SAN format",
   "reason": "Why this is a good move"
-}`;
+}
+`;
     return userPrompt;
   }
 
-  async getNextMove(
-    fen: string,
-    pgn: string,
-    validMoves: string[],
-    aiColor: Color,
-    model: string,
-    apiKey: string
-  ): Promise<{
+  async getNextMove({
+    fen,
+    pgn,
+    ascii,
+    boardDescription,
+    validMoves,
+    invalidAttemptedMoves,
+    aiColor,
+    model,
+    apiKey,
+  }: AiMoveArgs): Promise<{
     san: string;
     reason: string;
     tokensUsed?: number;
@@ -109,7 +148,15 @@ Only use the moves in this list: ${validMoves.join(", ")}
       this.openai = new OpenAIApi(configuration);
     }
 
-    const userPrompt = this.getUserPrompt(fen, pgn, validMoves, aiColor);
+    const userPrompt = this.getUserPrompt({
+      fen,
+      pgn,
+      ascii,
+      boardDescription,
+      validMoves,
+      invalidAttemptedMoves,
+      aiColor,
+    });
 
     // build the messages
     console.log("Calling OpenAI API", fen);

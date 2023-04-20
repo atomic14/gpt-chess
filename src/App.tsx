@@ -10,24 +10,37 @@ import StartGameModal from "./components/StartGameModal";
 import 'react-toastify/dist/ReactToastify.css';
 import TextDisplay from "./components/TextDisplay";
 import AIMoveModal from "./components/AIMoveModal";
+import { getAllValidSanMoves, getBoardDescription } from "./chess_master_2000/ChessHelpers";
+
 
 function App() {
   const [isGameStarted, setIsGameStarted] = useState(false);
   const [fen, setFen] = useState('');
   const [pgn, setPgn] = useState('');
+  const [ascii, setAscii] = useState('');
+  const [validMoves, setValidMoves] = useState<string[]>([]);
   const [showStartGameModal, setShowStartGameModal] = useState(false);
   const [playerColor, setPlayerColor] = useState<Color>('w');
   const [showAIMoveModal, setShowAIMoveModal] = useState(false);
   const [aiMessage, setAiMessage] = useState('');
   const [apiKey, setApiKey] = useState('');
+  const [boardDescription, setBoardDescription] = useState('');
   const game = useState(new Chess())[0];
   const ai = useState(new ChessGPT())[0];
+
+  function updateGameState() {
+    setFen(game.fen());
+    setPgn(game.pgn());
+    setAscii(game.ascii().replace(/ /g, ''));
+    setValidMoves(getAllValidSanMoves(game));
+    setBoardDescription(getBoardDescription(game));
+  }
 
   function startNewGame(playerColor: Color) {
     game.clear();
     game.reset();
     ai.clear();
-    setFen(game.fen());
+    updateGameState();
     setPlayerColor(playerColor);
     setIsGameStarted(true);
     setShowStartGameModal(false);
@@ -38,8 +51,7 @@ function App() {
 
   function onPlayerMove(from: string, to: string) {
     game.move({ from, to });
-    setFen(game.fen());
-    setPgn(game.pgn());
+    updateGameState();
     if (game.isGameOver()) {
       handleGameOver();
     } else {
@@ -50,8 +62,7 @@ function App() {
 
   function onAIMove(aiMove: string, reason: string) {
     game.move(aiMove);
-    setFen(game.fen());
-    setPgn(game.pgn());
+    updateGameState();
     setAiMessage(reason);
     setShowAIMoveModal(false);
     if (game.isGameOver()) {
@@ -103,8 +114,12 @@ function App() {
       <AIMoveModal
         showModal={showAIMoveModal}
         ai={ai}
-        game={game}
-        playerColor={playerColor}
+        fen={fen}
+        pgn={pgn}
+        ascii={ascii}
+        boardDescription={boardDescription}
+        validMoves={validMoves}
+        aiColor={playerColor === 'w' ? 'b' : 'w'}
         setApiKey={(key) => setApiKey(key)}
         apiKey={apiKey}
         onMove={(move, reason) => onAIMove(move, reason)}

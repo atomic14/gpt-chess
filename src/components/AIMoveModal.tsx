@@ -1,8 +1,8 @@
 import { faCopy } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/react-fontawesome";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button, Form, InputGroup, Modal, Spinner } from "react-bootstrap";
-import { Chess, Color } from 'chess.js'
+import { Color } from 'chess.js'
 import CopyToClipboard from "react-copy-to-clipboard";
 import { toast } from "react-toastify";
 import ChessGPT from "../chess_master_2000/ChessGPT";
@@ -10,35 +10,68 @@ import ChessGPT from "../chess_master_2000/ChessGPT";
 type AIMoveModalProps = {
   showModal: boolean;
   ai: ChessGPT;
-  playerColor: Color;
-  game: Chess;
+  fen: string;
+  pgn: string;
+  ascii: string;
+  boardDescription: string;
+  validMoves: string[];
+  aiColor: Color;
   onMove: (move: string, reason: string) => void;
   setApiKey: (key: string) => void;
   apiKey: string;
 }
 
-export default function AIMoveModal({ showModal, ai, game, playerColor, onMove, apiKey, setApiKey }: AIMoveModalProps) {
+export default function AIMoveModal({ showModal, ai, fen, pgn, ascii, boardDescription, validMoves, aiColor, onMove, apiKey, setApiKey }: AIMoveModalProps) {
   const [selectedOption, setSelectedOption] = useState<'apiKey' | 'copyPrompt'>('apiKey');
   const [manualMove, setManualMove] = useState('');
   const [showSpinner, setShowSpinner] = useState(false);
   const [model, setModel] = useState('gpt-4');
+  const [prompt, setPrompt] = useState('');
+  const [invalidAttemptedMoves, setInvalidAttemptedMoves] = useState<string[]>([]);
+  const [estimatedTokens, setEstimatedTokens] = useState(0);
+  const [estimatedCost, setEstimatedCost] = useState(0);
 
-  const aiColor = playerColor === 'w' ? 'b' : 'w';
-  const validMoves = game.moves({ verbose: true });
-  const validMovesSan = validMoves.map(move => move.san);
-  const prompt = ai.getUserPrompt(game.fen(), game.pgn(), validMovesSan, aiColor);
-  const estimatedTokens = ai.getEstimatedTokens(game.fen(), game.pgn(), validMovesSan, aiColor);
-  const kTokens = (estimatedTokens || 0) / 1000;
-  const cost = model === 'gpt-4' ? 0.03 * kTokens : 0.002 * kTokens;
+  useEffect(() => {
+    const prompt = ai.getUserPrompt({ fen, pgn, ascii, boardDescription, validMoves, invalidAttemptedMoves, aiColor });
+    const estimatedTokens = ai.getEstimatedTokens({ fen, pgn, ascii, boardDescription, validMoves, invalidAttemptedMoves, aiColor });
+    setEstimatedTokens(estimatedTokens);
+    const kTokens = (estimatedTokens || 0) / 1000;
+    const cost = model === 'gpt-4' ? 0.03 * kTokens : 0.002 * kTokens;
+    setPrompt(prompt);
+    setEstimatedCost(cost);
+  }, [fen, pgn, ascii, boardDescription, model, ai, validMoves, aiColor, invalidAttemptedMoves]);
+
+  const manualMoveInvalid = manualMove !== '' && !validMoves.includes(manualMove);
 
   async function sendRequest() {
     setShowSpinner(true);
     try {
-      const aiMove = await ai.getNextMove(game.fen(), game.pgn(), validMovesSan, playerColor === 'w' ? 'b' : 'w', model, apiKey);
+      const aiMove = await ai.getNextMove({
+        fen,
+        pgn,
+        ascii,
+        boardDescription,
+        validMoves,
+        invalidAttemptedMoves,
+        aiColor,
+        model,
+        apiKey
+      });
       const kTokens = (aiMove.tokensUsed || 0) / 1000;
       const cost = model === 'gpt-4' ? 0.03 * kTokens : 0.002 * kTokens;
-      toast.success(`ChatGPT makes the move: ${aiMove.san}\nTokens Used: ${aiMove.tokensUsed} ($${cost.toFixed(2)})`);
-      onMove(aiMove.san, aiMove.reason);
+      // check the move is valid
+      console.log('validMoves', validMoves)
+      console.log('aiMove.san', aiMove.san)
+      console.log('validMoves.includes(aiMove.san)', validMoves.includes(aiMove.san));
+      if (!validMoves.includes(aiMove.san)) {
+        toast.error(`ChatGPT tried to make the invalide move ${aiMove.san}\nUpdating prompt to help it.\nTokens Used: ${aiMove.tokensUsed} ($${cost.toFixed(4)})`);
+        setInvalidAttemptedMoves([...invalidAttemptedMoves, aiMove.san]);
+      } else {
+        toast.success(`ChatGPT makes the move: ${aiMove.san}\nTokens Used: ${aiMove.tokensUsed} ($${cost.toFixed(4)})`);
+        // successful move - make sure we clear any invalid moves
+        setInvalidAttemptedMoves([]);
+        onMove(aiMove.san, aiMove.reason);
+      }
     } catch (e: any) {
       toast.error(`Something went wrong, please try again later: ${e.message}`);
     }
@@ -117,7 +150,7 @@ export default function AIMoveModal({ showModal, ai, game, playerColor, onMove, 
                     <Button variant="outline"><FontAwesomeIcon icon={faCopy} /></Button>
                   </CopyToClipboard>
                 </InputGroup>
-                <div>We will use approx {estimatedTokens} tokens (${cost.toFixed(2)})</div>
+                <div>We will use approx {estimatedTokens} tokens (${estimatedCost.toFixed(2)})</div>
               </Form.Group>
             </>
           )}
@@ -139,7 +172,10 @@ export default function AIMoveModal({ showModal, ai, game, playerColor, onMove, 
                   type="text"
                   placeholder="Enter chess move in SAN format"
                   value={manualMove}
-                  onChange={(e) => setManualMove(e.target.value)} />
+                  onChange={(e) => setManualMove(e.target.value)}
+                  required
+                  isInvalid={manualMoveInvalid}
+                />
               </Form.Group>
             </>
           )}
@@ -160,7 +196,7 @@ export default function AIMoveModal({ showModal, ai, game, playerColor, onMove, 
             </Button>
           </>)}
         {selectedOption === 'copyPrompt' && (
-          <Button variant="primary" disabled={manualMove === ''} onClick={() => { onMove(manualMove, '') }}>
+          <Button variant="primary" disabled={manualMove === '' || manualMoveInvalid} onClick={() => { onMove(manualMove, '') }}>
             Make Move
           </Button>)}
       </Modal.Footer>
