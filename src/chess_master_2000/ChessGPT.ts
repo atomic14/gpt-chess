@@ -166,6 +166,7 @@ Output the best move in SAN format to follow this position. Use the following si
       model: model,
       messages: messages,
       max_tokens: 500,
+      temperature: 0.1,
     });
     if (completion.data.choices.length === 0) {
       throw new Error("No choices returned from OpenAI");

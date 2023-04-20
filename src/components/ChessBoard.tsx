@@ -63,15 +63,22 @@ export default function ChessBoard({ game, fen, isGameStarted, playerColor, onPl
       legalMoveHighlightStyles!.textContent = style;
     }
 
+    function appendBackgroundStyle(style: string) {
+      const legalMoveHighlightStyles: HTMLElement = document.getElementById("legalMoveHighlightStyles")!;
+      legalMoveHighlightStyles!.textContent += style;
+    }
+
+
     function greySquare(square: string) {
       const highlightColor = (square.charCodeAt(0) % 2) ^ (square.charCodeAt(1) % 2)
         ? whiteSquareGrey
         : blackSquareGrey;
 
-      setBackgroundStyle(`
+      appendBackgroundStyle(`
           chess-board::part(${square}) {
           background-color: ${highlightColor};
-        }`);
+        }
+        `);
     }
 
     function onDragStart(event: any) {
