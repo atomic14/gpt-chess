@@ -124,7 +124,7 @@ function App() {
         apiKey={apiKey}
         onMove={(move, reason) => onAIMove(move, reason)}
       />
-      <ToastContainer position="top-center" />
+      <ToastContainer position="top-right" />
     </div>
   );
 }
