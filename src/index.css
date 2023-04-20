@@ -73,6 +73,7 @@ body {
   .right_panel {
     padding: 1rem;
     width: 100vw;
+    z-index: 1;
   }
   
 }

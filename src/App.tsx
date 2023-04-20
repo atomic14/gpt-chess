@@ -111,6 +111,7 @@ function App() {
         <p>You can learn all about the plugin by watching <a href="https://youtu.be/lXFeq2yUy58">this video</a> - it's pretty interesting</p>
         <p>So I made this simple website to make it easier to play chess againt ChatGPT.</p>
         <p>You can either: copy and paste the moves into a ChatGPT session - or - if you have API access you can paste an APIKey in. Everything happens client side so it's pretty safe.</p>
+        <p>GPT-3.5 is pretty rubbish, GPT-4 will give you a slightly better game.</p>
         <p>The code is available <a href='https://github.com/atomic14/gpt-chess'>here</a> - it's very rough and ready.</p>
         <p>If you like this then do check out my <a href='https://www.youtube.com/@atomic14'>YouTube channel</a>. If you really like it, you might consider contributing something on <a href='https://www.patreon.com/atomic14'>patreon...</a></p>
       </div>
