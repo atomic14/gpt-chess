@@ -107,7 +107,7 @@ function App() {
         <TextDisplay title='PGN' text={pgn} />
         <TextDisplay title='FEN' breakAnywhere text={fen} />
         <h3>What's all this about?</h3>
-        <p>I've been playing around with ChatGPT plugins and made fun chess plugin - but not many people have access to plugins yet.</p>
+        <p>I've been playing around with ChatGPT plugins and made fun <a href="https://gpt-chess.atomic14.com/">chess plugin</a> - but not many people have access to plugins yet.</p>
         <p>You can learn all about the plugin by watching <a href="https://youtu.be/lXFeq2yUy58">this video</a> - it's pretty interesting</p>
         <p>So I made this simple website to make it easier to play chess againt ChatGPT.</p>
         <p>You can either: copy and paste the moves into a ChatGPT session - or - if you have API access you can paste an APIKey in. Everything happens client side so it's pretty safe.</p>
