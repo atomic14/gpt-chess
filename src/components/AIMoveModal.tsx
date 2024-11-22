@@ -25,20 +25,16 @@ export default function AIMoveModal({ showModal, ai, fen, pgn, ascii, boardDescr
   const [selectedOption, setSelectedOption] = useState<'apiKey' | 'copyPrompt'>('apiKey');
   const [manualMove, setManualMove] = useState('');
   const [showSpinner, setShowSpinner] = useState(false);
-  const [model, setModel] = useState('gpt-4');
+  const [model, setModel] = useState('gpt-4o');
   const [prompt, setPrompt] = useState('');
   const [invalidAttemptedMoves, setInvalidAttemptedMoves] = useState<string[]>([]);
   const [estimatedTokens, setEstimatedTokens] = useState(0);
-  const [estimatedCost, setEstimatedCost] = useState(0);
 
   useEffect(() => {
     const prompt = ai.getUserPrompt({ fen, pgn, ascii, boardDescription, validMoves, invalidAttemptedMoves, aiColor });
     const estimatedTokens = ai.getEstimatedTokens({ fen, pgn, ascii, boardDescription, validMoves, invalidAttemptedMoves, aiColor });
     setEstimatedTokens(estimatedTokens);
-    const kTokens = (estimatedTokens || 0) / 1000;
-    const cost = model === 'gpt-4' ? 0.03 * kTokens : 0.002 * kTokens;
     setPrompt(prompt);
-    setEstimatedCost(cost);
   }, [fen, pgn, ascii, boardDescription, model, ai, validMoves, aiColor, invalidAttemptedMoves]);
 
   const manualMoveInvalid = manualMove !== '' && !validMoves.includes(manualMove);
@@ -134,10 +130,30 @@ export default function AIMoveModal({ showModal, ai, fen, pgn, ascii, boardDescr
                 <Form.Check
                   disabled={showSpinner}
                   type="radio"
-                  label="Use gpt-4 (Expensive, but better)"
+                  label="Use gpt-4"
                   value="gpt-4"
                   checked={model === 'gpt-4'}
                   onChange={() => setModel('gpt-4')}
+                  name="formRadioModel"
+                  id="formRadioModelGpt4"
+                />
+                <Form.Check
+                  disabled={showSpinner}
+                  type="radio"
+                  label="Use gpt-4o"
+                  value="gpt-4o"
+                  checked={model === 'gpt-4o'}
+                  onChange={() => setModel('gpt-4o')}
+                  name="formRadioModel"
+                  id="formRadioModelGpt4"
+                />
+                <Form.Check
+                  disabled={showSpinner}
+                  type="radio"
+                  label="Use gpt-4o-mini"
+                  value="gpt-4o-mini"
+                  checked={model === 'gpt-4o-mini'}
+                  onChange={() => setModel('gpt-4o-mini')}
                   name="formRadioModel"
                   id="formRadioModelGpt4"
                 />
@@ -150,7 +166,7 @@ export default function AIMoveModal({ showModal, ai, fen, pgn, ascii, boardDescr
                     <Button variant="outline"><FontAwesomeIcon icon={faCopy} /></Button>
                   </CopyToClipboard>
                 </InputGroup>
-                <div>We will use approx {estimatedTokens} tokens (${estimatedCost.toFixed(2)})</div>
+                <div>We will use approx {estimatedTokens} tokens</div>
               </Form.Group>
             </>
           )}
